@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const RoleContext = createContext(null);
 
@@ -13,6 +14,8 @@ export function RoleProvider({ children }) {
     const savedUser = localStorage.getItem('sqlchat_user');
     if (saved && savedUser) {
       try {
+        // Set header immediately before any components mount
+        axios.defaults.headers.common['Authorization'] = 'Bearer ' + saved;
         setToken(saved);
         setUser(JSON.parse(savedUser));
       } catch (e) {
@@ -24,6 +27,8 @@ export function RoleProvider({ children }) {
   }, []);
 
   const login = (tokenValue, userData) => {
+    // Set axios header immediately at login time
+    axios.defaults.headers.common['Authorization'] = 'Bearer ' + tokenValue;
     setToken(tokenValue);
     setUser(userData);
     localStorage.setItem('sqlchat_token', tokenValue);
@@ -31,6 +36,7 @@ export function RoleProvider({ children }) {
   };
 
   const logout = () => {
+    delete axios.defaults.headers.common['Authorization'];
     setToken(null);
     setUser(null);
     localStorage.removeItem('sqlchat_token');
