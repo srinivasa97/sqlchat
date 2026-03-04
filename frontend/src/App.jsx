@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useRole } from './components/RoleContext';
 import LoginPage from './components/LoginPage';
@@ -55,24 +55,20 @@ function Message({ msg, isAdmin }) {
 export default function App() {
   const { user, token, loading, logout, isAdmin } = useRole();
 
-  // Chat state
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [querying, setQuerying] = useState(false);
 
-  // DB + conversation state
   const [selectedDb, setSelectedDb] = useState(null);
   const [activeConvId, setActiveConvId] = useState(null);
   const [historyRefresh, setHistoryRefresh] = useState(0);
 
-  // UI state
   const [showSchema, setShowSchema] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Set axios auth header whenever token changes
   useEffect(() => {
     if (token) axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
     else delete axios.defaults.headers.common['Authorization'];
@@ -85,23 +81,19 @@ export default function App() {
   if (loading) return <div style={s.loading}>Loading...</div>;
   if (!user) return <LoginPage />;
 
-  // ── Start a new blank conversation ────────────
   const startNewChat = () => {
     setMessages([]);
     setActiveConvId(null);
     setInput('');
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  // ── Load an existing conversation ─────────────
   const loadConversation = async (id) => {
     try {
       const res = await axios.get('/api/history/' + id);
       const conv = res.data;
       setMessages(conv.messages);
       setActiveConvId(id);
-
-      // If the conv's DB differs from current selection, try to match
       if (conv.dbId !== selectedDb?.id) {
         const dbRes = await axios.get('/api/databases');
         const match = dbRes.data.find(d => d.id === conv.dbId);
@@ -112,14 +104,13 @@ export default function App() {
     }
   };
 
-  // ── Ask a question ────────────────────────────
   const ask = async (question) => {
     const q = (question || input).trim();
     if (!q || querying || !selectedDb) return;
 
     setInput('');
 
-    // Create conversation on first message
+    // Step 1: create conversation if this is a new chat
     let convId = activeConvId;
     if (!convId) {
       try {
@@ -130,24 +121,30 @@ export default function App() {
         });
         convId = res.data.id;
         setActiveConvId(convId);
-        setHistoryRefresh(n => n + 1); // refresh sidebar
+        setHistoryRefresh(n => n + 1);
       } catch (e) {
         console.error('Create conversation failed', e.message);
+        // continue without history if it fails
       }
     }
 
-    const userMsg = { role: 'user', text: q, timestamp: new Date().toISOString() };
-    setMessages(prev => [...prev, userMsg]);
+    // Step 2: show user message in UI
+    setMessages(prev => [...prev, {
+      role: 'user',
+      text: q,
+      timestamp: new Date().toISOString(),
+    }]);
     setQuerying(true);
 
+    // Step 3: run query
     try {
       const res = await axios.post('/api/query', {
         question: q,
         dbId: selectedDb.id,
-        conversationId: convId,
+        conversationId: convId || null,
       });
 
-      const botMsg = {
+      setMessages(prev => [...prev, {
         role: 'bot',
         type: 'result',
         sql: res.data.sql,
@@ -156,9 +153,9 @@ export default function App() {
         rowCount: res.data.rowCount,
         durationMs: res.data.durationMs,
         timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, botMsg]);
-      setHistoryRefresh(n => n + 1); // update message count in sidebar
+      }]);
+      setHistoryRefresh(n => n + 1);
+
     } catch (err) {
       if (err.response?.status === 401) { logout(); return; }
       const errData = err.response?.data;
@@ -183,11 +180,14 @@ export default function App() {
   return (
     <div style={s.app}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
           <span style={s.logo}>sqlchat</span>
-          <DbSelector selectedDb={selectedDb} onSelect={(db) => { setSelectedDb(db); startNewChat(); }} />
+          <DbSelector
+            selectedDb={selectedDb}
+            onSelect={(db) => { setSelectedDb(db); startNewChat(); }}
+          />
         </div>
 
         <div style={s.headerRight}>
@@ -195,7 +195,11 @@ export default function App() {
             <>
               <button
                 onClick={() => setShowSchema(o => !o)}
-                style={{ ...s.iconBtn, color: showSchema ? 'var(--accent2)' : 'var(--text3)' }}
+                style={{
+                  ...s.iconBtn,
+                  color: showSchema ? 'var(--accent2)' : 'var(--text3)',
+                  borderColor: showSchema ? 'var(--accent)' : 'var(--border)',
+                }}
                 title="Toggle schema panel"
               >
                 ⊞ Schema
@@ -219,24 +223,25 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div style={s.body}>
 
-        {/* History sidebar — always visible when logged in */}
+        {/* History sidebar */}
         <HistorySidebar
           activeId={activeConvId}
           onSelect={loadConversation}
           onNew={startNewChat}
           onDelete={(id) => { if (activeConvId === id) startNewChat(); }}
           refreshTrigger={historyRefresh}
+          token={token}
         />
 
-        {/* Schema panel — admin only, toggleable */}
+        {/* Schema panel — admin only */}
         {isAdmin && (
           <SchemaPanel visible={showSchema} dbId={selectedDb?.id} token={token} />
         )}
 
-        {/* Main chat area */}
+        {/* Chat area */}
         <div style={s.chatCol}>
           <div style={s.chat}>
 
@@ -252,7 +257,9 @@ export default function App() {
                 {selectedDb && (
                   <div style={s.exampleGrid}>
                     {EXAMPLES.map((q, i) => (
-                      <button key={i} style={s.exampleBtn} onClick={() => ask(q)}>{q}</button>
+                      <button key={i} style={s.exampleBtn} onClick={() => ask(q)}>
+                        {q}
+                      </button>
                     ))}
                   </div>
                 )}
@@ -273,6 +280,7 @@ export default function App() {
                 </div>
               </div>
             )}
+
             <div ref={bottomRef} />
           </div>
 
@@ -331,9 +339,9 @@ const s = {
   headerRight: { display: 'flex', alignItems: 'center', gap: 10 },
   logo: { fontSize: 16, fontWeight: 700, color: 'var(--accent2)', letterSpacing: '-0.5px' },
   iconBtn: {
-    background: 'none', border: '1px solid var(--border)',
+    background: 'none', border: '1px solid',
     borderRadius: 6, fontSize: 12, padding: '4px 10px',
-    cursor: 'pointer', fontWeight: 500,
+    cursor: 'pointer', fontWeight: 500, transition: 'all 0.15s',
   },
   adminBtn: {
     fontSize: 12, fontWeight: 600, color: 'var(--accent2)',
