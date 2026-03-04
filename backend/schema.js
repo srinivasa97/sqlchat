@@ -1,46 +1,59 @@
-// schema.js - Loads and caches live MySQL schema for use in Ollama prompts
-const pool = require('./db');
+// schema.js - Per-DB schema cache
+const mysql = require('mysql2/promise');
 
-let cachedSchema = null;
-let lastFetched = null;
+const cache = {}; // { dbId: { schema, lastFetched } }
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-async function getSchema() {
+async function getSchema(dbConfig) {
+  const { id: dbId } = dbConfig;
   const now = Date.now();
-  if (cachedSchema && lastFetched && now - lastFetched < CACHE_TTL_MS) {
-    return cachedSchema;
+
+  if (cache[dbId] && now - cache[dbId].lastFetched < CACHE_TTL_MS) {
+    return cache[dbId].schema;
   }
 
-  const sql =
-    "SELECT c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE, c.COLUMN_KEY, c.IS_NULLABLE " +
-    "FROM information_schema.COLUMNS c " +
-    "WHERE c.TABLE_SCHEMA = 'allocation' " +
-    "ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION";
+  const conn = await mysql.createConnection({
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    database: dbConfig.database,
+    ssl: dbConfig.ssl ? { rejectUnauthorized: false } : undefined,
+  });
 
-  const [columns] = await pool.query(sql);
+  try {
+    const [columns] = await conn.query(
+      'SELECT c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE, c.COLUMN_KEY, c.IS_NULLABLE ' +
+      'FROM information_schema.COLUMNS c ' +
+      'WHERE c.TABLE_SCHEMA = ? ' +
+      'ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION',
+      [dbConfig.database]
+    );
 
-  const tables = {};
-  for (const row of columns) {
-    if (!tables[row.TABLE_NAME]) tables[row.TABLE_NAME] = [];
-    const pk = row.COLUMN_KEY === 'PRI' ? ' [PK]' : '';
-    const nullable = row.IS_NULLABLE === 'YES' ? '' : ' NOT NULL';
-    tables[row.TABLE_NAME].push('  ' + row.COLUMN_NAME + ' (' + row.DATA_TYPE + pk + nullable + ')');
+    const tables = {};
+    for (const row of columns) {
+      if (!tables[row.TABLE_NAME]) tables[row.TABLE_NAME] = [];
+      const pk = row.COLUMN_KEY === 'PRI' ? ' [PK]' : '';
+      const nullable = row.IS_NULLABLE === 'YES' ? '' : ' NOT NULL';
+      tables[row.TABLE_NAME].push('  ' + row.COLUMN_NAME + ' (' + row.DATA_TYPE + pk + nullable + ')');
+    }
+
+    let schemaText = 'Database: ' + dbConfig.database + '\n\nTables:\n';
+    for (const [tableName, cols] of Object.entries(tables)) {
+      schemaText += '\n' + tableName + ':\n' + cols.join('\n') + '\n';
+    }
+
+    cache[dbId] = { schema: schemaText, lastFetched: now };
+    console.log('[schema] Loaded ' + Object.keys(tables).length + ' tables from ' + dbConfig.database);
+    return schemaText;
+  } finally {
+    await conn.end();
   }
-
-  let schemaText = 'Database: allocation\n\nTables:\n';
-  for (const [tableName, cols] of Object.entries(tables)) {
-    schemaText += '\n' + tableName + ':\n' + cols.join('\n') + '\n';
-  }
-
-  cachedSchema = schemaText;
-  lastFetched = now;
-  console.log('[schema] Loaded ' + Object.keys(tables).length + ' tables');
-  return cachedSchema;
 }
 
-function clearSchemaCache() {
-  cachedSchema = null;
-  lastFetched = null;
+function clearSchemaCache(dbId) {
+  if (dbId) delete cache[dbId];
+  else Object.keys(cache).forEach(k => delete cache[k]);
 }
 
 module.exports = { getSchema, clearSchemaCache };

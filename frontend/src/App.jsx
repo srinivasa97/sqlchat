@@ -1,10 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useRole } from './components/RoleContext';
+import LoginPage from './components/LoginPage';
 import SchemaPanel from './components/SchemaPanel';
 import SqlBadge from './components/SqlBadge';
 import ResultChart from './components/ResultChart';
 import ResultTable from './components/ResultTable';
+import DbSelector from './components/DbSelector';
+import AdminPanel from './components/AdminPanel';
+import HistorySidebar from './components/HistorySidebar';
 
 const EXAMPLES = [
   'How many candidates are there in total?',
@@ -25,28 +29,22 @@ function Message({ msg, isAdmin }) {
       </div>
     );
   }
-
   if (msg.type === 'error') {
     return (
       <div style={s.msgBot}>
         <Avatar />
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Admin only: show SQL on errors too */}
           {isAdmin && msg.sql && <SqlBadge sql={msg.sql} />}
           <div style={s.errorBox}>{msg.text}</div>
         </div>
       </div>
     );
   }
-
   return (
     <div style={s.msgBot}>
       <Avatar />
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Admin only: SQL badge */}
         {isAdmin && msg.sql && <SqlBadge sql={msg.sql} />}
-
-        {/* Everyone: chart + table */}
         <ResultChart columns={msg.columns} rows={msg.rows} />
         <ResultTable columns={msg.columns} rows={msg.rows} durationMs={msg.durationMs} />
       </div>
@@ -55,35 +53,101 @@ function Message({ msg, isAdmin }) {
 }
 
 export default function App() {
-  const { role, toggle, isAdmin } = useRole();
+  const { user, token, loading, logout, isAdmin } = useRole();
+
+  // Chat state
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [schemaOpen, setSchemaOpen] = useState(true);
+  const [querying, setQuerying] = useState(false);
+
+  // DB + conversation state
+  const [selectedDb, setSelectedDb] = useState(null);
+  const [activeConvId, setActiveConvId] = useState(null);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+
+  // UI state
+  const [showSchema, setShowSchema] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Set axios auth header whenever token changes
+  useEffect(() => {
+    if (token) axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+    else delete axios.defaults.headers.common['Authorization'];
+  }, [token]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, querying]);
 
-  // When switching to viewer, close schema panel
-  useEffect(() => {
-    if (!isAdmin) setSchemaOpen(false);
-    if (isAdmin) setSchemaOpen(true);
-  }, [isAdmin]);
+  if (loading) return <div style={s.loading}>Loading...</div>;
+  if (!user) return <LoginPage />;
 
+  // ── Start a new blank conversation ────────────
+  const startNewChat = () => {
+    setMessages([]);
+    setActiveConvId(null);
+    setInput('');
+    inputRef.current?.focus();
+  };
+
+  // ── Load an existing conversation ─────────────
+  const loadConversation = async (id) => {
+    try {
+      const res = await axios.get('/api/history/' + id);
+      const conv = res.data;
+      setMessages(conv.messages);
+      setActiveConvId(id);
+
+      // If the conv's DB differs from current selection, try to match
+      if (conv.dbId !== selectedDb?.id) {
+        const dbRes = await axios.get('/api/databases');
+        const match = dbRes.data.find(d => d.id === conv.dbId);
+        if (match) setSelectedDb(match);
+      }
+    } catch (e) {
+      console.error('Load conversation failed', e.message);
+    }
+  };
+
+  // ── Ask a question ────────────────────────────
   const ask = async (question) => {
     const q = (question || input).trim();
-    if (!q || loading) return;
+    if (!q || querying || !selectedDb) return;
 
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: q }]);
-    setLoading(true);
+
+    // Create conversation on first message
+    let convId = activeConvId;
+    if (!convId) {
+      try {
+        const res = await axios.post('/api/history', {
+          dbId: selectedDb.id,
+          dbLabel: selectedDb.label,
+          firstQuestion: q,
+        });
+        convId = res.data.id;
+        setActiveConvId(convId);
+        setHistoryRefresh(n => n + 1); // refresh sidebar
+      } catch (e) {
+        console.error('Create conversation failed', e.message);
+      }
+    }
+
+    const userMsg = { role: 'user', text: q, timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    setQuerying(true);
 
     try {
-      const res = await axios.post('/api/query', { question: q });
-      setMessages(prev => [...prev, {
+      const res = await axios.post('/api/query', {
+        question: q,
+        dbId: selectedDb.id,
+        conversationId: convId,
+      });
+
+      const botMsg = {
         role: 'bot',
         type: 'result',
         sql: res.data.sql,
@@ -91,26 +155,29 @@ export default function App() {
         rows: res.data.rows,
         rowCount: res.data.rowCount,
         durationMs: res.data.durationMs,
-      }]);
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, botMsg]);
+      setHistoryRefresh(n => n + 1); // update message count in sidebar
     } catch (err) {
+      if (err.response?.status === 401) { logout(); return; }
       const errData = err.response?.data;
       setMessages(prev => [...prev, {
         role: 'bot',
         type: 'error',
-        text: errData?.error || 'Backend not reachable. Is the server running on port 3005?',
+        text: errData?.error || 'Something went wrong.',
         sql: errData?.sql || null,
+        timestamp: new Date().toISOString(),
       }]);
+      setHistoryRefresh(n => n + 1);
     } finally {
-      setLoading(false);
+      setQuerying(false);
       inputRef.current?.focus();
     }
   };
 
   const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      ask();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
   };
 
   return (
@@ -119,45 +186,57 @@ export default function App() {
       {/* ── Header ── */}
       <div style={s.header}>
         <div style={s.headerLeft}>
-          {/* Schema toggle — admin only */}
-          {isAdmin && (
-            <button
-              onClick={() => setSchemaOpen(o => !o)}
-              style={s.iconBtn}
-              title="Toggle schema panel"
-            >
-              ☰
-            </button>
-          )}
           <span style={s.logo}>sqlchat</span>
-          <span style={s.headerPill}>allocation</span>
+          <DbSelector selectedDb={selectedDb} onSelect={(db) => { setSelectedDb(db); startNewChat(); }} />
         </div>
 
         <div style={s.headerRight}>
-          {/* Role switcher — temporary until full auth */}
-          <div style={s.roleSwitcher}>
-            <span style={s.roleLabel}>View as:</span>
-            <button
-              onClick={toggle}
-              style={{
-                ...s.roleBtn,
-                background: isAdmin ? '#1e1b4b' : '#0f2818',
-                borderColor: isAdmin ? '#4f46e5' : '#166534',
-                color: isAdmin ? '#818cf8' : '#4ade80',
-              }}
-            >
-              {isAdmin ? '⚙ Admin' : '👤 Viewer'}
-            </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setShowSchema(o => !o)}
+                style={{ ...s.iconBtn, color: showSchema ? 'var(--accent2)' : 'var(--text3)' }}
+                title="Toggle schema panel"
+              >
+                ⊞ Schema
+              </button>
+              <button onClick={() => setShowAdmin(true)} style={s.adminBtn}>
+                ⚙ Admin
+              </button>
+            </>
+          )}
+          <div style={s.userInfo}>
+            <span style={s.userName}>{user.username}</span>
+            <span style={{
+              ...s.rolePill,
+              background: isAdmin ? '#1e1b4b' : '#0f2818',
+              color: isAdmin ? '#818cf8' : '#4ade80',
+            }}>
+              {user.role}
+            </span>
           </div>
+          <button onClick={logout} style={s.logoutBtn}>Sign out</button>
         </div>
       </div>
 
       {/* ── Body ── */}
       <div style={s.body}>
 
-        {/* Schema sidebar — admin only */}
-        {isAdmin && <SchemaPanel visible={schemaOpen} />}
+        {/* History sidebar — always visible when logged in */}
+        <HistorySidebar
+          activeId={activeConvId}
+          onSelect={loadConversation}
+          onNew={startNewChat}
+          onDelete={(id) => { if (activeConvId === id) startNewChat(); }}
+          refreshTrigger={historyRefresh}
+        />
 
+        {/* Schema panel — admin only, toggleable */}
+        {isAdmin && (
+          <SchemaPanel visible={showSchema} dbId={selectedDb?.id} token={token} />
+        )}
+
+        {/* Main chat area */}
         <div style={s.chatCol}>
           <div style={s.chat}>
 
@@ -166,17 +245,17 @@ export default function App() {
                 <div style={s.welcomeIcon}>🗄️</div>
                 <div style={s.welcomeTitle}>Ask your database anything</div>
                 <div style={s.welcomeSub}>
-                  {isAdmin
-                    ? 'Admin mode — schema visible, SQL shown.'
-                    : 'Ask a question in plain English and get instant results.'}
+                  {selectedDb
+                    ? 'Connected to ' + selectedDb.label
+                    : 'Select a database above to get started'}
                 </div>
-                <div style={s.exampleGrid}>
-                  {EXAMPLES.map((q, i) => (
-                    <button key={i} style={s.exampleBtn} onClick={() => ask(q)}>
-                      {q}
-                    </button>
-                  ))}
-                </div>
+                {selectedDb && (
+                  <div style={s.exampleGrid}>
+                    {EXAMPLES.map((q, i) => (
+                      <button key={i} style={s.exampleBtn} onClick={() => ask(q)}>{q}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -184,7 +263,7 @@ export default function App() {
               <Message key={i} msg={msg} isAdmin={isAdmin} />
             ))}
 
-            {loading && (
+            {querying && (
               <div style={s.msgBot}>
                 <Avatar />
                 <div style={s.dots}>
@@ -194,7 +273,6 @@ export default function App() {
                 </div>
               </div>
             )}
-
             <div ref={bottomRef} />
           </div>
 
@@ -205,18 +283,20 @@ export default function App() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="Ask a question about your data..."
+              placeholder={selectedDb
+                ? 'Ask a question about ' + selectedDb.label + '...'
+                : 'Select a database first...'}
               rows={1}
               style={s.textarea}
-              disabled={loading}
+              disabled={querying || !selectedDb}
             />
             <button
               onClick={() => ask()}
-              disabled={loading || !input.trim()}
+              disabled={querying || !input.trim() || !selectedDb}
               style={{
                 ...s.sendBtn,
-                opacity: (loading || !input.trim()) ? 0.4 : 1,
-                cursor: (loading || !input.trim()) ? 'not-allowed' : 'pointer',
+                opacity: (querying || !input.trim() || !selectedDb) ? 0.4 : 1,
+                cursor: (querying || !input.trim() || !selectedDb) ? 'not-allowed' : 'pointer',
               }}
             >
               Ask
@@ -225,6 +305,7 @@ export default function App() {
         </div>
       </div>
 
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
       <style>{dotAnim}</style>
     </div>
   );
@@ -239,150 +320,83 @@ const dotAnim = `
 
 const s = {
   app: { display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
+  loading: { height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 14 },
   header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 16px',
-    height: 48,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '0 16px', height: 48,
     borderBottom: '1px solid var(--border)',
-    background: 'var(--bg2)',
-    flexShrink: 0,
+    background: 'var(--bg2)', flexShrink: 0,
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 12 },
-  iconBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--text3)',
-    fontSize: 16,
-    cursor: 'pointer',
-    padding: '4px 6px',
-    borderRadius: 4,
-  },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 10 },
   logo: { fontSize: 16, fontWeight: 700, color: 'var(--accent2)', letterSpacing: '-0.5px' },
-  headerPill: {
-    fontSize: 11,
-    color: 'var(--text3)',
-    background: 'var(--bg3)',
-    border: '1px solid var(--border)',
-    padding: '2px 8px',
-    borderRadius: 10,
+  iconBtn: {
+    background: 'none', border: '1px solid var(--border)',
+    borderRadius: 6, fontSize: 12, padding: '4px 10px',
+    cursor: 'pointer', fontWeight: 500,
   },
-  roleSwitcher: { display: 'flex', alignItems: 'center', gap: 8 },
-  roleLabel: { fontSize: 11, color: 'var(--text3)' },
-  roleBtn: {
-    fontSize: 12,
-    fontWeight: 600,
-    border: '1px solid',
-    borderRadius: 6,
-    padding: '4px 10px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
+  adminBtn: {
+    fontSize: 12, fontWeight: 600, color: 'var(--accent2)',
+    background: '#1e1b4b', border: '1px solid #4f46e5',
+    borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+  },
+  userInfo: { display: 'flex', alignItems: 'center', gap: 6 },
+  userName: { fontSize: 13, color: 'var(--text2)', fontWeight: 500 },
+  rolePill: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6 },
+  logoutBtn: {
+    fontSize: 12, color: 'var(--text3)', background: 'none',
+    border: '1px solid var(--border)', borderRadius: 6,
+    padding: '4px 10px', cursor: 'pointer',
   },
   body: { display: 'flex', flex: 1, overflow: 'hidden' },
   chatCol: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' },
-  chat: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '24px 24px 8px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 20,
-  },
-  welcome: {
-    margin: 'auto',
-    textAlign: 'center',
-    maxWidth: 520,
-    paddingBottom: 40,
-  },
+  chat: { flex: 1, overflowY: 'auto', padding: '24px 24px 8px', display: 'flex', flexDirection: 'column', gap: 20 },
+  welcome: { margin: 'auto', textAlign: 'center', maxWidth: 520, paddingBottom: 40 },
   welcomeIcon: { fontSize: 36, marginBottom: 12 },
   welcomeTitle: { fontSize: 22, fontWeight: 600, color: 'var(--text)', marginBottom: 6 },
   welcomeSub: { fontSize: 14, color: 'var(--text3)', marginBottom: 24 },
   exampleGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
   exampleBtn: {
-    background: 'var(--bg2)',
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    color: 'var(--text2)',
-    padding: '10px 14px',
-    fontSize: 13,
-    cursor: 'pointer',
-    textAlign: 'left',
-    lineHeight: 1.4,
+    background: 'var(--bg2)', border: '1px solid var(--border)',
+    borderRadius: 8, color: 'var(--text2)', padding: '10px 14px',
+    fontSize: 13, cursor: 'pointer', textAlign: 'left', lineHeight: 1.4,
   },
   msgUser: { display: 'flex', justifyContent: 'flex-end' },
   userBubble: {
-    background: 'var(--accent)',
-    color: '#fff',
+    background: 'var(--accent)', color: '#fff',
     borderRadius: '16px 16px 4px 16px',
-    padding: '10px 16px',
-    maxWidth: '65%',
-    fontSize: 14,
-    lineHeight: 1.5,
+    padding: '10px 16px', maxWidth: '65%', fontSize: 14, lineHeight: 1.5,
   },
   msgBot: { display: 'flex', gap: 12, alignItems: 'flex-start' },
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    background: 'var(--bg3)',
-    border: '1px solid var(--border)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 10,
-    fontWeight: 700,
-    color: 'var(--accent2)',
-    flexShrink: 0,
-    marginTop: 2,
+    width: 30, height: 30, borderRadius: 8,
+    background: 'var(--bg3)', border: '1px solid var(--border)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 10, fontWeight: 700, color: 'var(--accent2)',
+    flexShrink: 0, marginTop: 2,
   },
   dots: { display: 'flex', gap: 5, alignItems: 'center', paddingTop: 8 },
   dot: {
-    display: 'inline-block',
-    width: 7,
-    height: 7,
-    borderRadius: '50%',
-    background: 'var(--accent)',
-    animation: 'bounce 1.2s infinite ease-in-out',
+    display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+    background: 'var(--accent)', animation: 'bounce 1.2s infinite ease-in-out',
   },
   errorBox: {
-    background: 'var(--errorBg)',
-    border: '1px solid var(--errorBorder)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    color: '#fca5a5',
-    fontSize: 13,
+    background: 'var(--errorBg)', border: '1px solid var(--errorBorder)',
+    borderRadius: 8, padding: '10px 14px', color: '#fca5a5', fontSize: 13,
   },
   inputBar: {
-    display: 'flex',
-    gap: 10,
-    padding: '12px 24px 16px',
+    display: 'flex', gap: 10, padding: '12px 24px 16px',
     borderTop: '1px solid var(--border)',
-    background: 'var(--bg2)',
-    flexShrink: 0,
+    background: 'var(--bg2)', flexShrink: 0,
   },
   textarea: {
-    flex: 1,
-    background: 'var(--bg3)',
-    border: '1px solid var(--border2)',
-    borderRadius: 10,
-    color: 'var(--text)',
-    padding: '10px 14px',
-    fontSize: 14,
-    resize: 'none',
-    outline: 'none',
-    lineHeight: 1.5,
+    flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)',
+    borderRadius: 10, color: 'var(--text)', padding: '10px 14px',
+    fontSize: 14, resize: 'none', outline: 'none', lineHeight: 1.5,
   },
   sendBtn: {
-    background: 'var(--accent)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 10,
-    padding: '10px 22px',
-    fontSize: 14,
-    fontWeight: 600,
-    flexShrink: 0,
-    transition: 'opacity 0.15s',
+    background: 'var(--accent)', color: '#fff', border: 'none',
+    borderRadius: 10, padding: '10px 22px', fontSize: 14,
+    fontWeight: 600, flexShrink: 0, transition: 'opacity 0.15s',
   },
 };

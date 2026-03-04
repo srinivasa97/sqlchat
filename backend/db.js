@@ -1,24 +1,26 @@
-// db.js - MySQL connection pool (XAMPP, user=root, no password)
+// db.js - Dynamic MySQL connections per dbConfig
 const mysql = require('mysql2/promise');
 
-const pool = mysql.createPool({
-  host: 'localhost',
-  port: 3306,
-  user: 'root',
-  password: '',
-  database: 'allocation',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+const pools = {};
 
-pool.getConnection()
-  .then(conn => {
-    console.log('[db] MySQL connected to "allocation"');
-    conn.release();
-  })
-  .catch(err => {
-    console.error('[db] MySQL connection failed:', err.message);
+function getPool(dbConfig) {
+  if (pools[dbConfig.id]) return pools[dbConfig.id];
+
+  const pool = mysql.createPool({
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    database: dbConfig.database,
+    ssl: dbConfig.ssl ? { rejectUnauthorized: false } : undefined,
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0,
   });
 
-module.exports = pool;
+  pools[dbConfig.id] = pool;
+  console.log('[db] Pool created for: ' + dbConfig.label);
+  return pool;
+}
+
+module.exports = { getPool };

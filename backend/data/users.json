@@ -1,0 +1,16 @@
+[
+  {
+    "id": "u1",
+    "username": "admin",
+    "password": "$2a$10$IUh54I78vqT/e8rs6ivARu4ZPMGvQsSifkDC04EmyIus0DUx34Hjm",
+    "role": "admin",
+    "assignedDbs": ["db1"]
+  },
+  {
+    "id": "u2",
+    "username": "viewer",
+    "password": "$2a$10$UI6MBp.6kvUZJePEhTVLL.VT.MBRQPRA8KBJNi9bLykhukyBCHPqW",
+    "role": "viewer",
+    "assignedDbs": ["db1"]
+  }
+]
