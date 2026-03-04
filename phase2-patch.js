@@ -1,4 +1,284 @@
-import { useState, useRef, useEffect } from 'react';
+#!/usr/bin/env node
+/**
+ * phase2-patch.js
+ * Run from C:\Users\Varun Sathvik\Repos\sqlchat
+ * Usage: node phase2-patch.js
+ *
+ * Fixes:
+ *  1. Schema sidebar column count showing 0
+ *  2. Role-based visibility (Admin/Viewer toggle in header)
+ *     - Admin: sees schema sidebar + SQL badge
+ *     - Viewer: no sidebar, no SQL, just chart + table
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+function write(filePath, content) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, content, 'utf8');
+  console.log('  updated:', filePath);
+}
+
+// ─────────────────────────────────────────────
+// frontend/src/components/SchemaPanel.jsx
+// Fix: column count parsing + only visible to admin (controlled by parent)
+// ─────────────────────────────────────────────
+write('frontend/src/components/SchemaPanel.jsx', `import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+export default function SchemaPanel({ visible }) {
+  const [tables, setTables] = useState([]);
+  const [open, setOpen] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => { fetchSchema(); }, []);
+
+  const fetchSchema = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('/api/schema');
+      setTables(parseSchema(res.data.schema));
+    } catch (e) {
+      console.error('Schema load failed', e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await axios.post('/api/schema/refresh');
+      await fetchSchema();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // FIX: parse schema text properly into { name, columns[] }
+  const parseSchema = (text) => {
+    const result = [];
+    if (!text) return result;
+
+    const lines = text.split('\\n');
+    let current = null;
+
+    for (const raw of lines) {
+      const line = raw.trimEnd();
+
+      // Table header line: "tablename:" with no leading space
+      if (/^[a-zA-Z_][a-zA-Z0-9_]*:$/.test(line)) {
+        current = { name: line.slice(0, -1), columns: [] };
+        result.push(current);
+        continue;
+      }
+
+      // Column line: starts with 2 spaces
+      if (current && line.startsWith('  ') && line.trim().length > 0) {
+        current.columns.push(line.trim());
+      }
+    }
+
+    return result;
+  };
+
+  const toggle = (name) => setOpen(prev => ({ ...prev, [name]: !prev[name] }));
+
+  if (!visible) return null;
+
+  return (
+    <div style={s.panel}>
+      <div style={s.header}>
+        <span style={s.title}>Schema</span>
+        <button onClick={refresh} style={s.refreshBtn} disabled={refreshing}>
+          {refreshing ? '...' : 'Refresh'}
+        </button>
+      </div>
+
+      <div style={s.dbLabel}>allocation</div>
+
+      {loading && <div style={s.hint}>Loading...</div>}
+
+      {!loading && tables.length === 0 && (
+        <div style={s.hint}>No tables found.</div>
+      )}
+
+      <div style={s.tableList}>
+        {tables.map(t => (
+          <div key={t.name} style={s.tableBlock}>
+            <button style={s.tableBtn} onClick={() => toggle(t.name)}>
+              <span style={s.arrow}>{open[t.name] ? '▾' : '▸'}</span>
+              <span style={s.tableName}>{t.name}</span>
+              <span style={s.badge}>{t.columns.length}</span>
+            </button>
+
+            {open[t.name] && (
+              <div style={s.colList}>
+                {t.columns.map((col, i) => {
+                  const isPK = col.includes('[PK]');
+                  const namePart = col.split('(')[0].trim();
+                  const typePart = col.match(/\\(([^)]+)\\)/)?.[1] || '';
+                  return (
+                    <div key={i} style={s.colRow}>
+                      <span style={{ ...s.colName, color: isPK ? '#818cf8' : '#94a3b8' }}>
+                        {isPK && <span style={s.pkDot} title="Primary Key">⬡ </span>}
+                        {namePart}
+                      </span>
+                      <span style={s.colType}>{typePart.replace(' NOT NULL', '').replace(' [PK]', '')}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const s = {
+  panel: {
+    width: 230,
+    flexShrink: 0,
+    borderRight: '1px solid var(--border)',
+    display: 'flex',
+    flexDirection: 'column',
+    background: 'var(--bg2)',
+    overflowY: 'auto',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '10px 14px',
+    borderBottom: '1px solid var(--border)',
+    flexShrink: 0,
+  },
+  title: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: 'var(--text3)',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  refreshBtn: {
+    fontSize: 11,
+    color: 'var(--text3)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '2px 6px',
+    borderRadius: 4,
+  },
+  dbLabel: {
+    fontSize: 12,
+    color: 'var(--accent2)',
+    padding: '7px 14px',
+    borderBottom: '1px solid var(--border)',
+    fontWeight: 600,
+    flexShrink: 0,
+  },
+  hint: {
+    color: 'var(--text3)',
+    fontSize: 12,
+    padding: '10px 14px',
+  },
+  tableList: { flex: 1, overflowY: 'auto' },
+  tableBlock: { borderBottom: '1px solid var(--border)' },
+  tableBtn: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 14px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--text)',
+    fontSize: 12,
+    textAlign: 'left',
+  },
+  arrow: { color: 'var(--text3)', fontSize: 10, width: 10, flexShrink: 0 },
+  tableName: { flex: 1, fontWeight: 500 },
+  badge: {
+    fontSize: 10,
+    color: 'var(--text3)',
+    background: 'var(--bg3)',
+    padding: '1px 6px',
+    borderRadius: 8,
+    minWidth: 18,
+    textAlign: 'center',
+  },
+  colList: { paddingBottom: 4 },
+  colRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '3px 14px 3px 28px',
+    gap: 6,
+  },
+  colName: { fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  pkDot: { fontSize: 9, marginRight: 2 },
+  colType: {
+    fontSize: 10,
+    color: 'var(--text3)',
+    fontFamily: 'monospace',
+    flexShrink: 0,
+  },
+};
+`);
+
+// ─────────────────────────────────────────────
+// frontend/src/components/RoleContext.jsx
+// Simple React context — holds current role, exposes toggle
+// ─────────────────────────────────────────────
+write('frontend/src/components/RoleContext.jsx', `import { createContext, useContext, useState } from 'react';
+
+const RoleContext = createContext(null);
+
+export function RoleProvider({ children }) {
+  const [role, setRole] = useState('admin'); // default: admin
+
+  const toggle = () => setRole(r => r === 'admin' ? 'viewer' : 'admin');
+
+  return (
+    <RoleContext.Provider value={{ role, toggle, isAdmin: role === 'admin' }}>
+      {children}
+    </RoleContext.Provider>
+  );
+}
+
+export function useRole() {
+  return useContext(RoleContext);
+}
+`);
+
+// ─────────────────────────────────────────────
+// frontend/src/main.jsx  — wrap app in RoleProvider
+// ─────────────────────────────────────────────
+write('frontend/src/main.jsx', `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import { RoleProvider } from './components/RoleContext';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <RoleProvider>
+      <App />
+    </RoleProvider>
+  </React.StrictMode>
+);
+`);
+
+// ─────────────────────────────────────────────
+// frontend/src/App.jsx  — role-aware
+// ─────────────────────────────────────────────
+write('frontend/src/App.jsx', `import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useRole } from './components/RoleContext';
 import SchemaPanel from './components/SchemaPanel';
@@ -230,12 +510,12 @@ export default function App() {
   );
 }
 
-const dotAnim = `
+const dotAnim = \`
 @keyframes bounce {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
   40%           { transform: translateY(-6px); opacity: 1; }
 }
-`;
+\`;
 
 const s = {
   app: { display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
@@ -386,3 +666,18 @@ const s = {
     transition: 'opacity 0.15s',
   },
 };
+`);
+
+console.log('');
+console.log('Patch applied!');
+console.log('');
+console.log('No npm install needed — no new packages.');
+console.log('');
+console.log('Just save and the Vite dev server will hot-reload.');
+console.log('');
+console.log('What changed:');
+console.log('  - Schema sidebar column counts now show correctly');
+console.log('  - Role switcher in header: Admin / Viewer toggle');
+console.log('  - Admin: schema sidebar + SQL badge visible');
+console.log('  - Viewer: no sidebar, no SQL, just chart + table');
+console.log('  - RoleContext.jsx added (ready to wire into real auth later)');
