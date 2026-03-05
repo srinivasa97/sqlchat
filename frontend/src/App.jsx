@@ -219,7 +219,7 @@ export default function App() {
               {user.role}
             </span>
           </div>
-          <button onClick={logout} style={s.logoutBtn}>Sign out</button>
+          <button onClick={() => { startNewChat(); logout(); }} style={s.logoutBtn}> Sign out</button>
         </div>
       </div>
 
@@ -234,6 +234,7 @@ export default function App() {
           onDelete={(id) => { if (activeConvId === id) startNewChat(); }}
           refreshTrigger={historyRefresh}
           token={token}
+          key={user?.id}
         />
 
         {/* Schema panel — admin only */}
