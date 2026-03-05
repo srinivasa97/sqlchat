@@ -29,18 +29,23 @@ export default function HistorySidebar({
   onNew,
   onDelete,
   refreshTrigger,
+  token,
 }) {
   const [convs, setConvs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoverId, setHoverId] = useState(null);
 
   useEffect(() => {
-    load();
-  }, [refreshTrigger]);
+    if (token) load();
+  }, [refreshTrigger, token]);
+
+  const authHeader = () => ({
+    headers: { Authorization: 'Bearer ' + token }
+  });
 
   const load = async () => {
     try {
-      const res = await axios.get('/api/history');
+      const res = await axios.get('/api/history', authHeader());
       setConvs(res.data);
     } catch (e) {
       console.error('History load failed', e.message);
@@ -53,7 +58,7 @@ export default function HistorySidebar({
     e.stopPropagation();
     if (!confirm('Delete this conversation?')) return;
     try {
-      await axios.delete('/api/history/' + id);
+      await axios.delete('/api/history/' + id, authHeader());
       setConvs(prev => prev.filter(c => c.id !== id));
       if (activeId === id) onNew();
     } catch (e) {
