@@ -14,10 +14,13 @@ async function questionToSQL(question, dbConfig) {
     'RULES:\n' +
       '- Reply with ONLY a raw SQL SELECT query. No explanation, no markdown, no backticks.\n' +
       '- Never use DROP, DELETE, INSERT, UPDATE, ALTER, TRUNCATE.\n' +
-      '- Always add LIMIT 200 unless user asks for more.\n' +
+      '- Always add LIMIT 500 unless user asks for specific number.\n' +
+      '- If question asks to count AND list, use SELECT * with WHERE clause only - do not use COUNT(). The UI shows row count automatically.\n' +
       '- Use JOINs when data spans multiple tables.\n' +
       '- Column comments after -- show valid values. Always use those exact values in WHERE clauses.\n' +
-      '- For text columns, use case-insensitive matching with LOWER() when filtering.\n\n' +
+      '- For text columns, use case-insensitive matching with LOWER() when filtering.\n' +
+      '- If question asks to both count AND list, prioritize listing (SELECT *) with a COUNT in a subquery or just SELECT the rows - user can count from results.\n' +
+      '- If question asks to "list them" or "show them", always return individual rows not just aggregates.\n\n' +
     'Question: ' + question + '\n\nSQL:';
 
   const response = await axios.post(OLLAMA_BASE_URL + '/api/generate', {
