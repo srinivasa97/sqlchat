@@ -23,7 +23,7 @@ async function getSchema(dbConfig) {
 
   try {
     const [columns] = await conn.query(
-      'SELECT c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE, c.COLUMN_KEY, c.IS_NULLABLE ' +
+      'SELECT c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE, c.COLUMN_KEY, c.IS_NULLABLE, c.COLUMN_COMMENT ' +
       'FROM information_schema.COLUMNS c ' +
       'WHERE c.TABLE_SCHEMA = ? ' +
       'ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION',
@@ -35,7 +35,8 @@ async function getSchema(dbConfig) {
       if (!tables[row.TABLE_NAME]) tables[row.TABLE_NAME] = [];
       const pk = row.COLUMN_KEY === 'PRI' ? ' [PK]' : '';
       const nullable = row.IS_NULLABLE === 'YES' ? '' : ' NOT NULL';
-      tables[row.TABLE_NAME].push('  ' + row.COLUMN_NAME + ' (' + row.DATA_TYPE + pk + nullable + ')');
+      const comment = row.COLUMN_COMMENT ? ' -- ' + row.COLUMN_COMMENT : '';
+      tables[row.TABLE_NAME].push('  ' + row.COLUMN_NAME + ' (' + row.DATA_TYPE + pk + nullable + ')' + comment);
     }
 
     let schemaText = 'Database: ' + dbConfig.database + '\n\nTables:\n';

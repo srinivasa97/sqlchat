@@ -12,10 +12,12 @@ async function questionToSQL(question, dbConfig) {
     'You are a MySQL expert. Convert the question to a MySQL SELECT query.\n\n' +
     'SCHEMA:\n' + schema + '\n\n' +
     'RULES:\n' +
-    '- Reply with ONLY a raw SQL SELECT query. No explanation, no markdown, no backticks.\n' +
-    '- Never use DROP, DELETE, INSERT, UPDATE, ALTER, TRUNCATE.\n' +
-    '- Always add LIMIT 200 unless user asks for more.\n' +
-    '- Use JOINs when data spans multiple tables.\n\n' +
+      '- Reply with ONLY a raw SQL SELECT query. No explanation, no markdown, no backticks.\n' +
+      '- Never use DROP, DELETE, INSERT, UPDATE, ALTER, TRUNCATE.\n' +
+      '- Always add LIMIT 200 unless user asks for more.\n' +
+      '- Use JOINs when data spans multiple tables.\n' +
+      '- Column comments after -- show valid values. Always use those exact values in WHERE clauses.\n' +
+      '- For text columns, use case-insensitive matching with LOWER() when filtering.\n\n' +
     'Question: ' + question + '\n\nSQL:';
 
   const response = await axios.post(OLLAMA_BASE_URL + '/api/generate', {
