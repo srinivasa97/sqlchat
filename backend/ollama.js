@@ -101,9 +101,13 @@ async function questionToSQL(question, dbConfig) {
   sql = sql.replace(/SELECT\s+COUNT\(\*\)\s*,\s*\*/i, 'SELECT *');
   sql = sql.replace(/SELECT\s+COUNT\(\*\)\s*,\s*/i, 'SELECT ');
 
-  // Trim to first statement only
+  // Trim to first statement only (stop at semicolon or second SELECT)
   const semi = sql.indexOf(';');
   if (semi !== -1) sql = sql.substring(0, semi + 1);
+
+  // Remove any second SELECT statement the model appended
+  const secondSelect = sql.search(/\n\s*SELECT\s+/i);
+  if (secondSelect !== -1) sql = sql.substring(0, secondSelect).trim();
 
   console.log('[ollama] Model:', MODEL);
   console.log('[ollama] SQL:', sql);
