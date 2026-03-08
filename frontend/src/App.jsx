@@ -9,6 +9,7 @@ import ResultTable from './components/ResultTable';
 import DbSelector from './components/DbSelector';
 import AdminPanel from './components/AdminPanel';
 import HistorySidebar from './components/HistorySidebar';
+import Dashboard from './components/Dashboard';
 
 const EXAMPLES = [
   'How many candidates are there in total?',
@@ -65,6 +66,7 @@ export default function App() {
 
   const [showSchema, setShowSchema] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [view, setView] = useState('dashboard'); // 'dashboard' | 'chat'
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -191,6 +193,23 @@ export default function App() {
         </div>
 
         <div style={s.headerRight}>
+          {/* View toggle */}
+          <div style={s.viewToggle}>
+            <button
+              onClick={() => setView('dashboard')}
+              style={{ ...s.toggleBtn, ...(view === 'dashboard' ? s.toggleActive : {}) }}
+              title="Dashboard"
+            >
+              📊 Dashboard
+            </button>
+            <button
+              onClick={() => setView('chat')}
+              style={{ ...s.toggleBtn, ...(view === 'chat' ? s.toggleActive : {}) }}
+              title="Chat"
+            >
+              💬 Chat
+            </button>
+          </div>
           {isAdmin && (
             <>
               <button
@@ -226,6 +245,13 @@ export default function App() {
       {/* Body */}
       <div style={s.body}>
 
+        {/* Dashboard view */}
+        {view === 'dashboard' && (
+          <Dashboard selectedDb={selectedDb} token={token} />
+        )}
+
+        {/* Chat view */}
+        {view === 'chat' && (<>
         {/* History sidebar */}
         <HistorySidebar
           activeId={activeConvId}
@@ -311,7 +337,11 @@ export default function App() {
               Ask
             </button>
           </div>
+          <div style={s.inputHint}>
+            💡 Tip: Add "as pie chart" or "as bar chart" to your question for a specific chart type.&nbsp;&nbsp;|&nbsp;&nbsp;Press <kbd style={s.kbd}>Enter</kbd> to send, <kbd style={s.kbd}>Shift+Enter</kbd> for new line.
+          </div>
         </div>
+        </>)}
       </div>
 
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
@@ -324,6 +354,9 @@ const dotAnim = `
 @keyframes bounce {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
   40%           { transform: translateY(-6px); opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 `;
 
@@ -338,7 +371,19 @@ const s = {
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   headerRight: { display: 'flex', alignItems: 'center', gap: 10 },
-  logo: { fontSize: 16, fontWeight: 700, color: 'var(--accent2)', letterSpacing: '-0.5px' },
+  viewToggle: {
+    display: 'flex', background: 'var(--bg3)',
+    border: '1px solid var(--border)', borderRadius: 8, padding: 3, gap: 2,
+  },
+  toggleBtn: {
+    background: 'none', border: 'none', borderRadius: 6,
+    color: 'var(--text3)', fontSize: 12, fontWeight: 500,
+    padding: '4px 12px', cursor: 'pointer', transition: 'all 0.15s',
+  },
+  toggleActive: {
+    background: 'var(--bg2)', color: 'var(--text)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+  },
   iconBtn: {
     background: 'none', border: '1px solid',
     borderRadius: 6, fontSize: 12, padding: '4px 10px',
@@ -407,5 +452,14 @@ const s = {
     background: 'var(--accent)', color: '#fff', border: 'none',
     borderRadius: 10, padding: '10px 22px', fontSize: 14,
     fontWeight: 600, flexShrink: 0, transition: 'opacity 0.15s',
+  },
+  inputHint: {
+    textAlign: 'center', fontSize: 11, color: 'var(--text3)',
+    padding: '4px 24px 10px', background: 'var(--bg2)',
+  },
+  kbd: {
+    background: 'var(--bg3)', border: '1px solid var(--border2)',
+    borderRadius: 4, padding: '1px 5px', fontSize: 10,
+    color: 'var(--text2)', fontFamily: 'monospace',
   },
 };

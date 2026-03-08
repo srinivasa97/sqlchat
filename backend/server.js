@@ -275,6 +275,57 @@ app.delete('/api/admin/databases/:id', requireAuth, requireAdmin, (req, res) => 
   }
 });
 
+
+// ── Dashboard ─────────────────────────────────
+app.get('/api/dashboard', requireAuth, requireDbAccess, async (req, res) => {
+  const dbId = req.query.dbId;
+  const dbConfig = getDbById(dbId);
+  if (!dbConfig) return res.status(404).json({ error: 'Database not found' });
+
+  const pool = getPool(dbConfig);
+
+  try {
+    const run = async (sql) => { const [rows] = await pool.query(sql); return rows; };
+
+    const [
+      totalRows,
+      genderRows,
+      profileRows,
+      profileGenderRows,
+      instituteTypeRows,
+      instituteTypeGenderRows,
+      suitableRows,
+      suitableGenderRows,
+      allocationRows,
+    ] = await Promise.all([
+      run('SELECT COUNT(*) AS total FROM candidates'),
+      run('SELECT gender, COUNT(*) AS count FROM candidates GROUP BY gender ORDER BY gender'),
+      run('SELECT profile, COUNT(*) AS count FROM candidates GROUP BY profile ORDER BY profile'),
+      run('SELECT profile, gender, COUNT(*) AS count FROM candidates GROUP BY profile, gender ORDER BY profile, gender'),
+      run('SELECT institute_type, COUNT(*) AS count FROM candidates GROUP BY institute_type ORDER BY count DESC'),
+      run('SELECT institute_type, gender, COUNT(*) AS count FROM candidates GROUP BY institute_type, gender ORDER BY institute_type, gender'),
+      run("SELECT candidate_suitable, COUNT(*) AS count FROM candidates WHERE candidate_suitable IS NOT NULL AND candidate_suitable != '' GROUP BY candidate_suitable ORDER BY count DESC"),
+      run("SELECT candidate_suitable, gender, COUNT(*) AS count FROM candidates WHERE candidate_suitable IS NOT NULL AND candidate_suitable != '' GROUP BY candidate_suitable, gender ORDER BY candidate_suitable, gender"),
+      run("SELECT CASE WHEN allocated_ic IS NOT NULL AND allocated_ic != '' THEN 'Allocated' ELSE 'Unallocated' END AS status, COUNT(*) AS count FROM candidates GROUP BY status"),
+    ]);
+
+    res.json({
+      total: totalRows[0]?.total || 0,
+      gender: genderRows,
+      profile: profileRows,
+      profileGender: profileGenderRows,
+      instituteType: instituteTypeRows,
+      instituteTypeGender: instituteTypeGenderRows,
+      suitable: suitableRows,
+      suitableGender: suitableGenderRows,
+      allocation: allocationRows,
+    });
+  } catch (err) {
+    console.error('[dashboard] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start ─────────────────────────────────────
 const PORT = process.env.PORT || 3005;
 app.listen(PORT, () => {
@@ -283,5 +334,6 @@ app.listen(PORT, () => {
   console.log('  Auth:    POST /api/auth/login');
   console.log('  Query:   POST /api/query { question, dbId, conversationId }');
   console.log('  History: GET  /api/history');
+  console.log('  Dashboard: GET /api/dashboard?dbId=');
   console.log('');
 });

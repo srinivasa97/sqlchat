@@ -69,9 +69,11 @@ export default function LoginPage() {
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
 
+        {/*
         <div style={s.hint}>
           Default: admin / admin123 &nbsp;·&nbsp; viewer / viewer123
         </div>
+        */}
       </div>
     </div>
   );
