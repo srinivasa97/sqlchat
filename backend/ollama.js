@@ -64,6 +64,7 @@ function buildPrompt(question, schema) {
     '- Use JOINs when data spans multiple tables.\n' +
     '- Column comments after -- show exact valid values. Always use those in WHERE clauses.\n' +
     '- Use LOWER() for case-insensitive text filtering.\n\n' +
+    '- If question asks for a chart/graph and has a filter condition, return grouped results showing both matching and non-matching counts for comparison.\n' +
     'Question: ' + question + '\n\nSQL:'
   );
 }

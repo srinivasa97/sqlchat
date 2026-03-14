@@ -15327,10 +15327,106 @@
         "rowCount": 1,
         "durationMs": 2210,
         "timestamp": "2026-03-07T02:51:21.461Z"
+      },
+      {
+        "role": "user",
+        "text": "how many iit candidates are not allocated as pie chart",
+        "timestamp": "2026-03-09T14:23:31.997Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE institute_type = 'IIT' AND allocated_zone IS NULL AND allocated_business IS NULL AND allocated_ic IS NULL",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 9
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 22853,
+        "timestamp": "2026-03-09T14:23:32.016Z"
+      },
+      {
+        "role": "user",
+        "text": "how many iit candidates are not allocated, show as bar chart",
+        "timestamp": "2026-03-09T14:24:26.609Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE institute_type = 'IIT' AND allocated_zone IS NULL AND allocated_business IS NULL AND allocated_ic IS NULL",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 9
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 1538,
+        "timestamp": "2026-03-09T14:24:26.621Z"
+      },
+      {
+        "role": "user",
+        "text": "show allocated vs unallocated IIT candidates as bar chart",
+        "timestamp": "2026-03-09T14:42:55.883Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT\n  c.institute_type,\n  COUNT(*) AS total,\n  SUM(IFNULL(c.allocated_zone, 'Unallocated')) AS allocated,\n  SUM(IFNULL(c.allocated_zone, 'Unallocated')) - COUNT(*) AS unallocated\nFROM\n  candidates c\nWHERE\n  LOWER(c.institute_type) = 'iit'\nGROUP BY\n  c.institute_type",
+        "columns": [
+          "institute_type",
+          "total",
+          "allocated",
+          "unallocated"
+        ],
+        "rows": [
+          {
+            "institute_type": "IIT",
+            "total": 209,
+            "allocated": 0,
+            "unallocated": -209
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 26513,
+        "timestamp": "2026-03-09T14:42:55.929Z"
+      },
+      {
+        "role": "user",
+        "text": "show allocated vs unallocated IIT candidates as bar chart",
+        "timestamp": "2026-03-09T14:45:11.113Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT\n  c.institute_type,\n  COUNT(*) AS total,\n  SUM(IFNULL(c.allocated_zone, 'Unallocated')) AS allocated,\n  SUM(IFNULL(c.allocated_zone, 'Unallocated')) - COUNT(*) AS unallocated\nFROM\n  candidates c\nWHERE\n  LOWER(c.institute_type) = 'iit'\nGROUP BY\n  c.institute_type",
+        "columns": [
+          "institute_type",
+          "total",
+          "allocated",
+          "unallocated"
+        ],
+        "rows": [
+          {
+            "institute_type": "IIT",
+            "total": 209,
+            "allocated": 0,
+            "unallocated": -209
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 3231,
+        "timestamp": "2026-03-09T14:45:11.151Z"
       }
     ],
     "createdAt": "2026-03-07T02:16:06.304Z",
-    "updatedAt": "2026-03-07T02:51:21.466Z"
+    "updatedAt": "2026-03-09T14:45:11.158Z"
   },
   {
     "id": "ch_1772938715631",
@@ -51097,9 +51193,572 @@
         "rowCount": 500,
         "durationMs": 892,
         "timestamp": "2026-03-08T03:57:16.556Z"
+      },
+      {
+        "role": "user",
+        "text": "how many candidates are allocated for pget profile based on gender, as pie chart",
+        "timestamp": "2026-03-12T05:08:45.504Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) AS allocated_count\nFROM candidates\nWHERE profile = 'pget'\nGROUP BY gender",
+        "columns": [
+          "gender",
+          "allocated_count"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "allocated_count": 159
+          },
+          {
+            "gender": "Male",
+            "allocated_count": 292
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 18270,
+        "timestamp": "2026-03-12T05:08:45.515Z"
       }
     ],
     "createdAt": "2026-03-08T03:51:34.249Z",
-    "updatedAt": "2026-03-08T03:57:16.560Z"
+    "updatedAt": "2026-03-12T05:08:45.521Z"
+  },
+  {
+    "id": "ch_1773162496606",
+    "userId": "u1",
+    "dbId": "db1",
+    "dbLabel": "Allocation (Local)",
+    "title": "how many male and female candidates are there, sho...",
+    "messages": [
+      {
+        "role": "user",
+        "text": "how many male and female candidates are there, show it as bar chart",
+        "timestamp": "2026-03-10T17:08:35.946Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) FROM candidates GROUP BY gender",
+        "columns": [
+          "gender",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "COUNT(*)": 666
+          },
+          {
+            "gender": "Male",
+            "COUNT(*)": 1494
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 19151,
+        "timestamp": "2026-03-10T17:08:35.956Z"
+      }
+    ],
+    "createdAt": "2026-03-10T17:08:16.606Z",
+    "updatedAt": "2026-03-10T17:08:35.962Z"
+  },
+  {
+    "id": "ch_1773306728283",
+    "userId": "u1",
+    "dbId": "db1",
+    "dbLabel": "Allocation (Local)",
+    "title": "how many get candidates allocated and group by gen...",
+    "messages": [
+      {
+        "role": "user",
+        "text": "how many get candidates allocated and group by gender, show as bar chart",
+        "timestamp": "2026-03-12T09:12:26.187Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) FROM candidates WHERE allocated_ic IS NOT NULL GROUP BY gender",
+        "columns": [
+          "gender",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "COUNT(*)": 624
+          },
+          {
+            "gender": "Male",
+            "COUNT(*)": 1419
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 17619,
+        "timestamp": "2026-03-12T09:12:26.199Z"
+      },
+      {
+        "role": "user",
+        "text": "how many get profile candidates allocated?",
+        "timestamp": "2026-03-12T09:12:53.413Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE profile = 'get' AND allocated_ic IS NOT NULL;",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 1373
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 1067,
+        "timestamp": "2026-03-12T09:12:53.422Z"
+      },
+      {
+        "role": "user",
+        "text": "how many male get profile candidates allocated?",
+        "timestamp": "2026-03-12T09:13:59.427Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE gender = 'male' AND allocated_ic IS NOT NULL;",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 1419
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 937,
+        "timestamp": "2026-03-12T09:13:59.437Z"
+      },
+      {
+        "role": "user",
+        "text": "how many male candidates allocated for GET profile?",
+        "timestamp": "2026-03-12T09:14:56.994Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE gender = 'male' AND allocated_ic LIKE '%GET%';",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 0
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 1024,
+        "timestamp": "2026-03-12T09:14:57.004Z"
+      },
+      {
+        "role": "user",
+        "text": "how many Male and GET profile candidaets allocated?",
+        "timestamp": "2026-03-12T09:15:32.182Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE gender = 'Male' AND profile = 'GET' AND allocated_ic IS NOT NULL;",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 929
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 1154,
+        "timestamp": "2026-03-12T09:15:32.192Z"
+      }
+    ],
+    "createdAt": "2026-03-12T09:12:08.283Z",
+    "updatedAt": "2026-03-12T09:15:32.197Z"
+  },
+  {
+    "id": "ch_1773307199790",
+    "userId": "u1",
+    "dbId": "db1",
+    "dbLabel": "Allocation (Local)",
+    "title": "how many candidates allocated group by gender, sho...",
+    "messages": [
+      {
+        "role": "user",
+        "text": "how many candidates allocated group by gender, show as chart",
+        "timestamp": "2026-03-12T09:20:00.767Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) FROM candidates WHERE isManual = 0 GROUP BY gender",
+        "columns": [
+          "gender",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "COUNT(*)": 666
+          },
+          {
+            "gender": "Male",
+            "COUNT(*)": 1494
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 876,
+        "timestamp": "2026-03-12T09:20:00.777Z"
+      },
+      {
+        "role": "user",
+        "text": "how many male and female candidates allocated group by get profile, show as chart",
+        "timestamp": "2026-03-12T09:20:46.527Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, profile, COUNT(*) FROM candidates WHERE allocated_ic IS NOT NULL GROUP BY gender, profile",
+        "columns": [
+          "gender",
+          "profile",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "profile": "GET",
+            "COUNT(*)": 444
+          },
+          {
+            "gender": "Female",
+            "profile": "MT",
+            "COUNT(*)": 19
+          },
+          {
+            "gender": "Female",
+            "profile": "NICMAR",
+            "COUNT(*)": 16
+          },
+          {
+            "gender": "Female",
+            "profile": "PGET",
+            "COUNT(*)": 145
+          },
+          {
+            "gender": "Male",
+            "profile": "GET",
+            "COUNT(*)": 929
+          },
+          {
+            "gender": "Male",
+            "profile": "MT",
+            "COUNT(*)": 86
+          },
+          {
+            "gender": "Male",
+            "profile": "NICMAR",
+            "COUNT(*)": 117
+          },
+          {
+            "gender": "Male",
+            "profile": "PGET",
+            "COUNT(*)": 287
+          }
+        ],
+        "rowCount": 8,
+        "durationMs": 1049,
+        "timestamp": "2026-03-12T09:20:46.537Z"
+      },
+      {
+        "role": "user",
+        "text": "how many get profile canddiates are allicated, group by gernder, show as chart",
+        "timestamp": "2026-03-12T09:22:22.391Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) AS allocated_count\nFROM candidates\nWHERE profile = 'get'\nAND allocated_ic IS NOT NULL\nGROUP BY gender",
+        "columns": [
+          "gender",
+          "allocated_count"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "allocated_count": 444
+          },
+          {
+            "gender": "Male",
+            "allocated_count": 929
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 1274,
+        "timestamp": "2026-03-12T09:22:22.401Z"
+      },
+      {
+        "role": "user",
+        "text": "how many candidates allocated, show as gender report",
+        "timestamp": "2026-03-12T09:23:16.862Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) AS total, gender FROM candidates WHERE allocated_ic IS NOT NULL GROUP BY gender",
+        "columns": [
+          "total",
+          "gender"
+        ],
+        "rows": [
+          {
+            "total": 624,
+            "gender": "Female"
+          },
+          {
+            "total": 1419,
+            "gender": "Male"
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 893,
+        "timestamp": "2026-03-12T09:23:16.871Z"
+      }
+    ],
+    "createdAt": "2026-03-12T09:19:59.790Z",
+    "updatedAt": "2026-03-12T09:23:16.877Z"
+  },
+  {
+    "id": "ch_1773307537326",
+    "userId": "u2",
+    "dbId": "db1",
+    "dbLabel": "Allocation (Local)",
+    "title": "how many total canddiates are there",
+    "messages": [
+      {
+        "role": "user",
+        "text": "how many total canddiates are there",
+        "timestamp": "2026-03-12T09:25:37.934Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 2160
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 514,
+        "timestamp": "2026-03-12T09:25:37.944Z"
+      },
+      {
+        "role": "user",
+        "text": "how many candidates allocated, show as chart",
+        "timestamp": "2026-03-12T09:25:54.396Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) AS total_allocated\nFROM candidates\nWHERE allocated_zone IS NOT NULL AND allocated_business IS NOT NULL AND allocated_ic IS NOT NULL",
+        "columns": [
+          "total_allocated"
+        ],
+        "rows": [
+          {
+            "total_allocated": 2043
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 1279,
+        "timestamp": "2026-03-12T09:25:54.405Z"
+      },
+      {
+        "role": "user",
+        "text": "how many GET profile candidates allocated and group by gender, show as chart",
+        "timestamp": "2026-03-12T09:26:54.659Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) FROM candidates WHERE profile = 'GET' AND allocated_ic IS NOT NULL GROUP BY gender",
+        "columns": [
+          "gender",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "COUNT(*)": 444
+          },
+          {
+            "gender": "Male",
+            "COUNT(*)": 929
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 1112,
+        "timestamp": "2026-03-12T09:26:54.668Z"
+      },
+      {
+        "role": "user",
+        "text": "how many candidates allocated and group by gender, show as chart",
+        "timestamp": "2026-03-12T10:46:14.883Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT gender, COUNT(*) FROM candidates WHERE allocated_ic IS NOT NULL GROUP BY gender",
+        "columns": [
+          "gender",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "gender": "Female",
+            "COUNT(*)": 624
+          },
+          {
+            "gender": "Male",
+            "COUNT(*)": 1419
+          }
+        ],
+        "rowCount": 2,
+        "durationMs": 17846,
+        "timestamp": "2026-03-12T10:46:14.894Z"
+      },
+      {
+        "role": "user",
+        "text": "how many candiaets are allocaed and group by profile, gender show as chart",
+        "timestamp": "2026-03-12T10:47:13.002Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT profile, gender, COUNT(*) FROM candidates WHERE allocated_zone IS NOT NULL AND allocated_business IS NOT NULL GROUP BY profile, gender",
+        "columns": [
+          "profile",
+          "gender",
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "profile": "GET",
+            "gender": "Female",
+            "COUNT(*)": 444
+          },
+          {
+            "profile": "GET",
+            "gender": "Male",
+            "COUNT(*)": 929
+          },
+          {
+            "profile": "MT",
+            "gender": "Female",
+            "COUNT(*)": 19
+          },
+          {
+            "profile": "MT",
+            "gender": "Male",
+            "COUNT(*)": 86
+          },
+          {
+            "profile": "NICMAR",
+            "gender": "Female",
+            "COUNT(*)": 16
+          },
+          {
+            "profile": "NICMAR",
+            "gender": "Male",
+            "COUNT(*)": 117
+          },
+          {
+            "profile": "PGET",
+            "gender": "Female",
+            "COUNT(*)": 145
+          },
+          {
+            "profile": "PGET",
+            "gender": "Male",
+            "COUNT(*)": 287
+          }
+        ],
+        "rowCount": 8,
+        "durationMs": 1117,
+        "timestamp": "2026-03-12T10:47:13.012Z"
+      },
+      {
+        "role": "user",
+        "text": "how many IIT candidares allocated?",
+        "timestamp": "2026-03-12T10:47:50.921Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates WHERE institute_type = 'IIT' AND allocated_ic IS NOT NULL;",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 200
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 1051,
+        "timestamp": "2026-03-12T10:47:50.930Z"
+      },
+      {
+        "role": "user",
+        "text": "how many candidates allocated group by instirute",
+        "timestamp": "2026-03-12T10:48:32.507Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT institute_type FROM candidates GROUP BY institute_type",
+        "columns": [
+          "institute_type"
+        ],
+        "rows": [
+          {
+            "institute_type": "Government"
+          },
+          {
+            "institute_type": "IIT"
+          },
+          {
+            "institute_type": "L&T EduTech Campus"
+          },
+          {
+            "institute_type": "NIT"
+          },
+          {
+            "institute_type": "Old IIT"
+          },
+          {
+            "institute_type": "Private"
+          }
+        ],
+        "rowCount": 6,
+        "durationMs": 733,
+        "timestamp": "2026-03-12T10:48:32.517Z"
+      }
+    ],
+    "createdAt": "2026-03-12T09:25:37.326Z",
+    "updatedAt": "2026-03-12T10:48:32.523Z"
   }
 ]
