@@ -1,4 +1,12 @@
+# Claude / Cline secrets
+.claude/settings.json
+.claude/settings.openrouter.json
+.claude/*.json
+
+# General secrets
 node_modules/
 dist/
 .env
 *.log
+backend/data/history.json
+backend/data/users.json
