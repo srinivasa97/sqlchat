@@ -51760,5 +51760,37 @@
     ],
     "createdAt": "2026-03-12T09:25:37.326Z",
     "updatedAt": "2026-03-12T10:48:32.523Z"
+  },
+  {
+    "id": "ch_1773736847578",
+    "userId": "u2",
+    "dbId": "db1",
+    "dbLabel": "Allocation (Local)",
+    "title": "How many candidates are there in total?",
+    "messages": [
+      {
+        "role": "user",
+        "text": "How many candidates are there in total?",
+        "timestamp": "2026-03-17T08:41:06.379Z"
+      },
+      {
+        "role": "bot",
+        "type": "result",
+        "sql": "SELECT COUNT(*) FROM candidates;",
+        "columns": [
+          "COUNT(*)"
+        ],
+        "rows": [
+          {
+            "COUNT(*)": 2160
+          }
+        ],
+        "rowCount": 1,
+        "durationMs": 18594,
+        "timestamp": "2026-03-17T08:41:06.391Z"
+      }
+    ],
+    "createdAt": "2026-03-17T08:40:47.578Z",
+    "updatedAt": "2026-03-17T08:41:06.396Z"
   }
 ]
